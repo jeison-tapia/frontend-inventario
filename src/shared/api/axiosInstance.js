@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/',
+  baseURL: 'https://api-inventario-ekw9.onrender.com/api/',
 });
 
 // Interceptor para agregar el token JWT siempre
