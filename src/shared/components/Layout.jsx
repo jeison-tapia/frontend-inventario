@@ -62,6 +62,7 @@ export default function Layout({ children }) {
   const [alertas, setAlertas] = useState(0);
   const [mostrarAlertas, setMostrarAlertas] = useState(false);
   const [productosAlerta, setProductosAlerta] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // === SISTEMA DE TEMAS ===
   const getInitialTheme = () => {
@@ -129,11 +130,19 @@ export default function Layout({ children }) {
 
   return (
     <div className="app-layout">
+      {/* OVERLAY PARA MÓVILES */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+      )}
+
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`}>
         <div className="sidebar-logo">
           <span className="sidebar-logo-icon">📦</span>
           <span className="sidebar-logo-text">B2B Sistema</span>
+          <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
+            ✕
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -141,6 +150,7 @@ export default function Layout({ children }) {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 `sidebar-link${isActive ? ' sidebar-link--active' : ''}`
               }
@@ -168,11 +178,13 @@ export default function Layout({ children }) {
       {/* MAIN CONTENT */}
       <main className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* TOPBAR PARA NOTIFICACIONES */}
-        <header style={{ 
-          display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px',
-          padding: '1rem 2rem', 
-          background: 'transparent', borderBottom: '1px solid var(--border-color)', position: 'relative' 
-        }}>
+        <header className="topbar">
+          <div className="topbar-left">
+            <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
+              ☰
+            </button>
+          </div>
+          <div className="topbar-right">
           {/* Botón de Toggle de Tema */}
           <button onClick={toggleTheme} title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} style={{
             background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
@@ -223,9 +235,10 @@ export default function Layout({ children }) {
               )}
             </div>
           )}
+          </div>
         </header>
 
-        <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
+        <div className="main-content-scroll">
           {children}
         </div>
       </main>
