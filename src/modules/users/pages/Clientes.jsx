@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../../shared/api/axiosInstance';
 
-const FORM_INICIAL = { username: '', email: '', rol: 'CLIENTE', telefono: '', first_name: '', last_name: '', password: '', credito_limite: 0 };
+const FORM_INICIAL = { username: '', email: '', rol: 'CLIENTE_FINAL', telefono: '', first_name: '', last_name: '', credito_limite: 0 };
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
@@ -16,7 +16,7 @@ export default function Clientes() {
     try {
       const res = await api.get('usuarios/?page_size=300');
       // Solo mostramos Clientes
-      const datos = (res.data.results || res.data).filter(u => u.rol === 'CLIENTE');
+      const datos = (res.data.results || res.data).filter(u => u.rol === 'CLIENTE_FINAL');
       setClientes(datos);
     } catch(e) { console.error(e); }
   };
@@ -28,9 +28,9 @@ export default function Clientes() {
 
   const abrirEditar = (user) => {
     setForm({ 
-      username: user.username, email: user.email || '', rol: 'CLIENTE', 
+      username: user.username, email: user.email || '', rol: 'CLIENTE_FINAL', 
       telefono: user.telefono || '', first_name: user.first_name || '', 
-      last_name: user.last_name || '', password: '', credito_limite: user.credito_limite || 0 
+      last_name: user.last_name || '', credito_limite: user.credito_limite || 0 
     });
     setEditando(user.id); setError(''); setModal(true);
   };
@@ -42,8 +42,8 @@ export default function Clientes() {
   const guardar = async (e) => {
     e.preventDefault(); setError('');
     try {
-      const pData = { ...form, rol: 'CLIENTE' }; // Forzar rol CLIENTE siempre
-      if (editando && !pData.password) delete pData.password; 
+      const pData = { ...form, rol: 'CLIENTE_FINAL' }; // Forzar rol CLIENTE_FINAL siempre
+      if (!editando) pData.password = Math.random().toString(36).slice(-8); // Contraseña aleatoria ya que no ingresan al sistema 
       
       if (editando) await api.patch(`usuarios/${editando}/`, pData);
       else await api.post('usuarios/', pData);
@@ -146,9 +146,9 @@ export default function Clientes() {
                 </div>
               </div>
               <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Contraseña Temporal {editando && '(Solo si desea reiniciarla)'}</label>
-                  <input type="password" name="password" className="input-field" style={{marginBottom:0}} value={form.password} onChange={handleChange} required={!editando} />
+                <div className="form-group" style={{ visibility: 'hidden', height: 0, overflow: 'hidden', marginBottom: 0 }}>
+                  <label className="form-label">Contraseña Temporal</label>
+                  <input type="password" name="password" className="input-field" value={form.password || ''} onChange={handleChange} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Crédito Límite ($)</label>

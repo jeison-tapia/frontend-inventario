@@ -16,7 +16,7 @@ export default function Usuarios() {
     try {
       const res = await api.get('usuarios/?page_size=100');
       // Solo mostramos Administradores y Vendedores
-      const personal = (res.data.results || res.data).filter(u => u.rol !== 'CLIENTE');
+      const personal = (res.data.results || res.data).filter(u => u.rol !== 'CLIENTE_FINAL');
       setUsuarios(personal);
     } catch(e) { console.error(e); }
   };
