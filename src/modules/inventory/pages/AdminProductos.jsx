@@ -4,36 +4,43 @@ import api from '../../../shared/api/axiosInstance';
 const FORM_INICIAL = {
   nombre: '', codigo_sku: '', categoria: '',
   precio_costo: '', precio_venta: '',
-  stock_actual: '', stock_minimo: '0',
+  stock_actual: '0', stock_minimo: '0',
   unidad_medida: 'Unidad', permite_fracciones: false,
-  fecha_vencimiento: '', // [Hito 6] Opcional
-  precio_venta_distribuidor: '', // [Hito 6] Precio VIP/Distribuidor
+  fecha_vencimiento: '',
+  precio_venta_distribuidor: '',
 };
+
+const BODEGA_INICIAL = { bodegaId: '', stockBodega: '0' };
 
 export default function AdminProductos() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [bodegas, setBodegas] = useState([]);
   const [modal, setModal] = useState(false);
-  const [editando, setEditando] = useState(null); // null = crear, id = editar
+  const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(FORM_INICIAL);
+  const [bodegaAsign, setBodegaAsign] = useState(BODEGA_INICIAL);
   const [error, setError] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(null); // id a eliminar
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [filtroCategoria, setFiltroCategoria] = useState('');
 
   useEffect(() => { cargar(); }, [filtroCategoria]);
 
   const cargar = async () => {
     const params = filtroCategoria ? `?categoria=${filtroCategoria}&page_size=100` : '?page_size=100';
-    const [pRes, cRes] = await Promise.all([
+    const [pRes, cRes, bRes] = await Promise.all([
       api.get(`productos/${params}`),
       api.get('categorias/'),
+      api.get('bodegas/'),
     ]);
     setProductos(pRes.data.results || pRes.data);
     setCategorias(cRes.data.results || cRes.data);
+    setBodegas((bRes.data.results || bRes.data).filter(b => b.activa));
   };
 
   const abrirCrear = () => {
     setForm(FORM_INICIAL);
+    setBodegaAsign(BODEGA_INICIAL);
     setEditando(null);
     setError('');
     setModal(true);
@@ -69,7 +76,6 @@ export default function AdminProductos() {
     e.preventDefault();
     setError('');
     try {
-      // Limpiar campos opcionales: string vacío → null para que Django lo acepte
       const payload = {
         ...form,
         fecha_vencimiento: form.fecha_vencimiento?.trim() || null,
@@ -78,7 +84,15 @@ export default function AdminProductos() {
       if (editando) {
         await api.put(`productos/${editando}/`, payload);
       } else {
-        await api.post('productos/', payload);
+        const res = await api.post('productos/', payload);
+        // Si se seleccionó bodega, crear el registro de inventario en esa bodega
+        if (bodegaAsign.bodegaId && parseFloat(bodegaAsign.stockBodega) > 0) {
+          await api.post('inventario-bodegas/', {
+            bodega: parseInt(bodegaAsign.bodegaId),
+            producto: res.data.id,
+            cantidad: parseFloat(bodegaAsign.stockBodega),
+          });
+        }
       }
       cerrarModal();
       cargar();
@@ -230,6 +244,49 @@ export default function AdminProductos() {
                   <input name="stock_minimo" type="number" step="0.001" className="input-field" style={{marginBottom:0}} value={form.stock_minimo} onChange={handleChange} />
                 </div>
               </div>
+
+              {/* BODEGA INICIAL — Solo al crear, no al editar */}
+              {!editando && (
+                <div style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '14px 16px', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '10px', color: 'var(--primary)' }}>
+                    🏢 Asignar Stock Inicial a Bodega <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opcional)</span>
+                  </div>
+                  <div className="form-row" style={{ gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Bodega destino</label>
+                      <select
+                        className="form-select"
+                        value={bodegaAsign.bodegaId}
+                        onChange={e => setBodegaAsign(prev => ({ ...prev, bodegaId: e.target.value }))}
+                      >
+                        <option value="">— Sin bodega (solo global) —</option>
+                        {bodegas.map(b => (
+                          <option key={b.id} value={b.id}>{b.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Unidades iniciales</label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        className="input-field"
+                        style={{ marginBottom: 0 }}
+                        value={bodegaAsign.stockBodega}
+                        onChange={e => setBodegaAsign(prev => ({ ...prev, stockBodega: e.target.value }))}
+                        disabled={!bodegaAsign.bodegaId}
+                      />
+                    </div>
+                  </div>
+                  {!bodegaAsign.bodegaId && (
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      💡 Si no asignas bodega ahora, puedes hacerlo después desde el módulo de Bodegas.
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Unidad de Medida</label>
