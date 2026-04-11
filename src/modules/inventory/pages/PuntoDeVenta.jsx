@@ -30,10 +30,18 @@ export default function PuntoDeVenta() {
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
   const [busquedaProd, setBusquedaProd] = useState('');
   const dropdownRef = useRef(null);
+  // Dropdown custom de clientes
+  const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+  const clienteDropdownRef = useRef(null);
+  const [cargando, setCargando] = useState(false);
 
-  // Cerrar el dropdown al hacer click fuera
+  // Cerrar los dropdowns al hacer click fuera
   useEffect(() => {
-    const fn = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownAbierto(false); };
+    const fn = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownAbierto(false);
+      if (clienteDropdownRef.current && !clienteDropdownRef.current.contains(e.target)) setDropdownClienteAbierto(false);
+    };
     document.addEventListener('mousedown', fn);
     return () => document.removeEventListener('mousedown', fn);
   }, []);
@@ -72,13 +80,18 @@ export default function PuntoDeVenta() {
   useEffect(() => { cargarCatalogos(); }, []);
 
   const cargarCatalogos = async () => {
+    setCargando(true);
     try {
       const [resCli, resProd, resBods] = await Promise.all([
         api.get('usuarios/?page_size=500'),
         api.get('productos/?page_size=1000'),
         api.get('bodegas/')
       ]);
-      setClientes((resCli.data.results || resCli.data).filter(u => u.rol === 'CLIENTE_FINAL'));
+      const todosUsuarios = resCli.data.results || resCli.data;
+      const soloClientes = Array.isArray(todosUsuarios)
+        ? todosUsuarios.filter(u => u.rol === 'CLIENTE_FINAL')
+        : [];
+      setClientes(soloClientes);
       setProductos(resProd.data.results || resProd.data);
       
       const bds = resBods.data.results || resBods.data;
@@ -86,6 +99,7 @@ export default function PuntoDeVenta() {
       // Auto-seleccionar la principal si existe
       if (bds.length > 0) setBodegaSeleccionada(bds[0].id);
     } catch { setError("Error cargando catálogos"); }
+    finally { setCargando(false); }
   };
 
   const agregarDetalle = () => {
@@ -442,15 +456,93 @@ export default function PuntoDeVenta() {
           </h2>
           {error && <div className="alert-box alert-warning" style={{ marginBottom: '16px' }}>{error}</div>}
           
-          {/* CLIENTE */}
-          <div className="form-group">
+          {/* CLIENTE — Buscador inteligente */}
+          <div className="form-group" ref={clienteDropdownRef} style={{ position: 'relative' }}>
             <label className="form-label" style={{ fontWeight: 'bold' }}>Facturar A (Cliente)</label>
-            <select className="form-select" value={clienteSeleccionado} onChange={e => setClienteSeleccionado(e.target.value)}>
-              <option value="">-- Seleccionar --</option>
-              {clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.username})</option>
-              ))}
-            </select>
+            
+            {/* Botón disparador */}
+            <div
+              onClick={() => setDropdownClienteAbierto(o => !o)}
+              style={{
+                padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)',
+                background: 'var(--card-bg)', cursor: 'pointer', display: 'flex',
+                justifyContent: 'space-between', alignItems: 'center', fontSize: '14px',
+                color: clienteSeleccionado ? 'var(--text-main)' : 'var(--text-muted)',
+                userSelect: 'none', minHeight: '42px'
+              }}
+            >
+              <span>
+                {cargando ? '⏳ Cargando clientes...' : (() => {
+                  const c = clientes.find(x => x.id === parseInt(clienteSeleccionado));
+                  if (!c) return clientes.length === 0 ? '⚠️ Sin clientes registrados' : '-- Seleccionar cliente --';
+                  return `${c.first_name || ''} ${c.last_name || ''}`.trim() + ` (${c.username})`;
+                })()}
+              </span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>▼</span>
+            </div>
+
+            {/* Lista desplegable con buscador */}
+            {dropdownClienteAbierto && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                background: 'var(--card-bg)', border: '1px solid var(--border-color)',
+                borderRadius: '10px', boxShadow: '0 12px 24px rgba(0,0,0,0.5)',
+                zIndex: 999, overflow: 'hidden', maxHeight: '260px',
+                display: 'flex', flexDirection: 'column'
+              }}>
+                <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-color)' }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="🔍 Buscar por nombre o NIT..."
+                    value={busquedaCliente}
+                    onChange={e => setBusquedaCliente(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-dark)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  {clientes.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      {cargando ? '⏳ Cargando...' : '⚠️ No hay clientes registrados. Ve a Clientes para agregar uno.'}
+                    </div>
+                  ) : (() => {
+                    const q = busquedaCliente.toLowerCase();
+                    const filtrados = clientes.filter(c =>
+                      (c.first_name || '').toLowerCase().includes(q) ||
+                      (c.last_name || '').toLowerCase().includes(q) ||
+                      (c.username || '').toLowerCase().includes(q)
+                    );
+                    if (filtrados.length === 0) return (
+                      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Sin resultados</div>
+                    );
+                    return filtrados.map(c => (
+                      <div
+                        key={c.id}
+                        onClick={() => { setClienteSeleccionado(c.id); setDropdownClienteAbierto(false); setBusquedaCliente(''); }}
+                        style={{
+                          padding: '10px 14px', cursor: 'pointer', fontSize: '14px',
+                          background: parseInt(clienteSeleccionado) === c.id ? 'rgba(99,102,241,0.15)' : 'transparent',
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+                        onMouseLeave={e => e.currentTarget.style.background = parseInt(clienteSeleccionado) === c.id ? 'rgba(99,102,241,0.15)' : 'transparent'}
+                      >
+                        <div style={{ fontWeight: 600 }}>{`${c.first_name || ''} ${c.last_name || ''}`.trim() || c.username}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NIT: {c.username}{c.telefono ? ` · ${c.telefono}` : ''}</div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+            
+            {/* Indicador de cuántos clientes hay */}
+            {!cargando && (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} disponible{clientes.length !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
 
           {/* MÉTODO DE PAGO */}
