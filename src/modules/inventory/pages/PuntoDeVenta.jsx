@@ -94,6 +94,8 @@ export default function PuntoDeVenta() {
       alert("Seleccione una bodega de origen primero.");
       return;
     }
+    const prodObj = productos.find(p => p.id === parseInt(prodSelect));
+    if (!prodObj) return;
     const invBodega = prodObj.inventarios?.find(i => i.bodega === parseInt(bodegaSeleccionada)) || {cantidad: 0};
     const cantidadRequerida = parseFloat(cantSelect);
     if (cantidadRequerida > parseFloat(invBodega.cantidad)) {
