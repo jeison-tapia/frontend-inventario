@@ -78,7 +78,7 @@ export default function PuntoDeVenta() {
         api.get('productos/?page_size=1000'),
         api.get('bodegas/')
       ]);
-      setClientes((resCli.data.results || resCli.data).filter(u => u.rol === 'CLIENTE'));
+      setClientes((resCli.data.results || resCli.data).filter(u => u.rol === 'CLIENTE_FINAL'));
       setProductos(resProd.data.results || resProd.data);
       
       const bds = resBods.data.results || resBods.data;
